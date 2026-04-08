@@ -10,5 +10,5 @@ package config;
  */
 public class SupabaseConfig {
     public static final String URL = "https://betuyzfogtzemysxlgvg.supabase.co";
-    public static final String API_KEY = "API_KEY";
+    public static final String API_KEY = "ApiKey";
 }
