@@ -12,8 +12,12 @@ import service.AuditService;
 import service.UserService; 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
@@ -44,10 +48,21 @@ public class DashboardForm extends JFrame {
     // UI Components - Audit
     private JTable tableAudit = new JTable();
     private DefaultTableModel auditModel;
+    private JButton btnExportAudit = new JButton("Export to Excel (CSV)");
     
     // UI Components - User
     private JTable tableUser = new JTable();
     private DefaultTableModel userModel;
+    
+    // 🔥 Komponen Filter Data Karyawan
+    private JTextField txtSearchEmp = new JTextField(15);
+    private JComboBox<String> cmbFilterStatus = new JComboBox<>(new String[]{"Semua", "Aktif", "Terminated"});
+    private TableRowSorter<DefaultTableModel> sorterEmployee;
+
+    // 🔥 Komponen Filter Data Audit Trail
+    private JTextField txtSearchAudit = new JTextField(15);
+    private JComboBox<String> cmbFilterAction = new JComboBox<>(new String[]{"Semua", "UPDATE", "DELETE"});
+    private TableRowSorter<DefaultTableModel> sorterAudit;
 
     public DashboardForm(User user) {
         this.currentUser = user;
@@ -59,7 +74,6 @@ public class DashboardForm extends JFrame {
         initUI();
         applyRolePermissions();
         
-        // 🔥 Load semua data pas aplikasi pertama kali dibuka
         loadData();
         loadAuditData();
         loadUserData(); 
@@ -69,26 +83,22 @@ public class DashboardForm extends JFrame {
         setLayout(new BorderLayout());
 
         // ==========================================
-        // 🔥 HEADER: PANEL WELCOME & LOGOUT
+        // HEADER: PANEL WELCOME & LOGOUT
         // ==========================================
         JPanel pnlHeader = new JPanel(new BorderLayout());
-        pnlHeader.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15)); // Padding biar ga mepet ujung
+        pnlHeader.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15)); 
         
         JLabel lblWelcome = new JLabel("Halo, " + currentUser.getUsername() + " | Hak Akses: " + currentUser.getRole());
         lblWelcome.setFont(new Font("Arial", Font.BOLD, 14));
         
-        JButton btnLogout = new JButton("Logout");
-        btnLogout.setBackground(new Color(255, 69, 58)); // Opsional: Kasih warna merah dikit kalau lu pake UI manager custom
+        btnLogout.setBackground(new Color(255, 69, 58)); 
         
         pnlHeader.add(lblWelcome, BorderLayout.WEST);
         pnlHeader.add(btnLogout, BorderLayout.EAST);
-        
-        // Taruh header di paling atas frame
         add(pnlHeader, BorderLayout.NORTH);
 
-
         // ==========================================
-        // 1. PANEL DATA KARYAWAN
+        // 1. PANEL DATA KARYAWAN + FILTER
         // ==========================================
         JPanel pnlEmployee = new JPanel(new BorderLayout());
         tableModel = new DefaultTableModel(new Object[]{"ID", "NIK", "Nama", "Jabatan", "Dept", "Status"}, 0) {
@@ -97,17 +107,27 @@ public class DashboardForm extends JFrame {
         };
         tableEmployee.setModel(tableModel);
         
+        sorterEmployee = new TableRowSorter<>(tableModel);
+        tableEmployee.setRowSorter(sorterEmployee);
+
+        JPanel pnlFilterEmp = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        pnlFilterEmp.add(new JLabel("Cari (NIK/Nama):"));
+        pnlFilterEmp.add(txtSearchEmp);
+        pnlFilterEmp.add(new JLabel("  Filter Status:"));
+        pnlFilterEmp.add(cmbFilterStatus);
+        
         JPanel pnlAction = new JPanel();
         pnlAction.add(btnAdd);
         pnlAction.add(btnEdit);
         pnlAction.add(btnDelete);
         pnlAction.add(btnRefresh);
         
+        pnlEmployee.add(pnlFilterEmp, BorderLayout.NORTH); 
         pnlEmployee.add(new JScrollPane(tableEmployee), BorderLayout.CENTER);
         pnlEmployee.add(pnlAction, BorderLayout.SOUTH);
 
         // ==========================================
-        // 2. PANEL AUDIT TRAIL
+        // 2. PANEL AUDIT TRAIL + FILTER 🔥
         // ==========================================
         JPanel pnlAudit = new JPanel(new BorderLayout());
         auditModel = new DefaultTableModel(new Object[]{
@@ -118,10 +138,26 @@ public class DashboardForm extends JFrame {
         };
         tableAudit.setModel(auditModel);
         
+        // Setup Sorter Audit
+        sorterAudit = new TableRowSorter<>(auditModel);
+        tableAudit.setRowSorter(sorterAudit);
+
+        // Panel Search & Filter Audit
+        JPanel pnlFilterAudit = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        pnlFilterAudit.add(new JLabel("Cari (Pelaku/Karyawan):"));
+        pnlFilterAudit.add(txtSearchAudit);
+        pnlFilterAudit.add(new JLabel("  Filter Aksi:"));
+        pnlFilterAudit.add(cmbFilterAction);
+        
         JButton btnRefreshAudit = new JButton("Refresh Audit Trail");
+        btnExportAudit.setBackground(new Color(46, 204, 113));
+        
+        
         JPanel pnlAuditAction = new JPanel();
         pnlAuditAction.add(btnRefreshAudit);
+        pnlAuditAction.add(btnExportAudit);
         
+        pnlAudit.add(pnlFilterAudit, BorderLayout.NORTH); // Masukin filter ke atas
         pnlAudit.add(new JScrollPane(tableAudit), BorderLayout.CENTER);
         pnlAudit.add(pnlAuditAction, BorderLayout.SOUTH);
 
@@ -155,9 +191,28 @@ public class DashboardForm extends JFrame {
         tabPane.addTab("Data Karyawan", pnlEmployee);
         tabPane.addTab("Audit Trail", pnlAudit);
         tabPane.addTab("User Management", pnlUsers); 
-
-        // Taruh Tab di tengah frame
         add(tabPane, BorderLayout.CENTER);
+
+        // ==========================================
+        // ACTION LISTENERS - FILTER KARYAWAN
+        // ==========================================
+        txtSearchEmp.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { applyEmployeeFilter(); }
+            public void removeUpdate(DocumentEvent e) { applyEmployeeFilter(); }
+            public void changedUpdate(DocumentEvent e) { applyEmployeeFilter(); }
+        });
+        cmbFilterStatus.addActionListener(e -> applyEmployeeFilter());
+
+        // ==========================================
+        // 🔥 ACTION LISTENERS - FILTER AUDIT
+        // ==========================================
+        txtSearchAudit.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { applyAuditFilter(); }
+            public void removeUpdate(DocumentEvent e) { applyAuditFilter(); }
+            public void changedUpdate(DocumentEvent e) { applyAuditFilter(); }
+        });
+        cmbFilterAction.addActionListener(e -> applyAuditFilter());
+
 
         // ==========================================
         // ACTION LISTENERS - KARYAWAN
@@ -176,7 +231,8 @@ public class DashboardForm extends JFrame {
                 JOptionPane.showMessageDialog(this, "Pilih data di tabel dulu bro!");
                 return;
             }
-            Employee selectedEmp = currentList.get(row);
+            int modelRow = tableEmployee.convertRowIndexToModel(row);
+            Employee selectedEmp = currentList.get(modelRow);
             new EmployeeForm(this, selectedEmp, currentUser).setVisible(true); 
             loadData();
             loadAuditData();
@@ -189,7 +245,9 @@ public class DashboardForm extends JFrame {
                 return;
             }
             
-            Employee selectedEmp = currentList.get(row);
+            int modelRow = tableEmployee.convertRowIndexToModel(row);
+            Employee selectedEmp = currentList.get(modelRow);
+            
             if(selectedEmp.getStatusKerja().equals("Terminated")) {
                 JOptionPane.showMessageDialog(this, "Karyawan ini statusnya sudah Terminated!");
                 return;
@@ -215,8 +273,8 @@ public class DashboardForm extends JFrame {
         // ACTION LISTENERS - AUDIT & USER
         // ==========================================
         btnRefreshAudit.addActionListener(e -> loadAuditData());
-
         btnRefreshUser.addActionListener(e -> loadUserData());
+        btnExportAudit.addActionListener(e -> exportAuditToCSV());
 
         btnAddUser.addActionListener(e -> {
             new UserForm(this, null).setVisible(true);
@@ -261,7 +319,7 @@ public class DashboardForm extends JFrame {
         });
 
         // ==========================================
-        // 🔥 ACTION LISTENER LOGOUT
+        // ACTION LISTENER LOGOUT
         // ==========================================
         btnLogout.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(this, 
@@ -270,8 +328,8 @@ public class DashboardForm extends JFrame {
                 JOptionPane.YES_NO_OPTION);
                 
             if (confirm == JOptionPane.YES_OPTION) {
-                this.dispose(); // Menutup window Dashboard saat ini
-                new LoginForm().setVisible(true); // Membuka window Login baru
+                this.dispose(); 
+                new LoginForm().setVisible(true); 
             }
         });
     }
@@ -292,6 +350,50 @@ public class DashboardForm extends JFrame {
     }
     
     // ==========================================
+    // METHOD FILTER KARYAWAN
+    // ==========================================
+    private void applyEmployeeFilter() {
+        String searchTxt = txtSearchEmp.getText().toLowerCase();
+        String status = cmbFilterStatus.getSelectedItem().toString();
+
+        List<RowFilter<Object,Object>> filters = new ArrayList<>();
+
+        if (searchTxt.trim().length() > 0) {
+            filters.add(RowFilter.regexFilter("(?i)" + searchTxt, 1, 2)); // Index 1: NIK, 2: Nama
+        }
+
+        if (status.equals("Aktif")) {
+            filters.add(RowFilter.regexFilter("(?i)Tetap|Kontrak", 5)); // Index 5: Status
+        } else if (status.equals("Terminated")) {
+            filters.add(RowFilter.regexFilter("(?i)Terminated", 5));
+        }
+
+        sorterEmployee.setRowFilter(RowFilter.andFilter(filters));
+    }
+
+    // ==========================================
+    // 🔥 METHOD FILTER AUDIT
+    // ==========================================
+    private void applyAuditFilter() {
+        String searchTxt = txtSearchAudit.getText().toLowerCase();
+        String action = cmbFilterAction.getSelectedItem().toString();
+
+        List<RowFilter<Object,Object>> filters = new ArrayList<>();
+
+        // Cari di Index 1 (Pelaku/User) dan Index 2 (Nama Karyawan)
+        if (searchTxt.trim().length() > 0) {
+            filters.add(RowFilter.regexFilter("(?i)" + searchTxt, 1, 2)); 
+        }
+
+        // Filter berdasarkan aksi (Index 3)
+        if (!action.equals("Semua")) {
+            filters.add(RowFilter.regexFilter("(?i)" + action, 3)); 
+        }
+
+        sorterAudit.setRowFilter(RowFilter.andFilter(filters));
+    }
+    
+    // ==========================================
     // LOAD DATA METHODS
     // ==========================================
     private void loadAuditData() {
@@ -302,6 +404,51 @@ public class DashboardForm extends JFrame {
                 log.getChangedAt(), log.getChangedByUsername(), log.getEmployeeName(),
                 log.getActionType(), log.getFieldChanged(), log.getOldValue(), log.getNewValue()
             });
+        }
+        // 🔥 Terapkan ulang filter setiap kali data direfresh
+        applyAuditFilter();
+    }
+    
+    // ==========================================
+    // 🔥 METHOD EXPORT AUDIT KE EXCEL (CSV)
+    // ==========================================
+    private void exportAuditToCSV() {
+        // Bikin dialog buat milih lokasi save file
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Pilih Lokasi Simpan Laporan Audit");
+        fileChooser.setSelectedFile(new java.io.File("Laporan_Audit_Trail_HRIS.csv")); // Nama default
+
+        int userSelection = fileChooser.showSaveDialog(this);
+        
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            java.io.File fileToSave = fileChooser.getSelectedFile();
+            
+            try (java.io.PrintWriter writer = new java.io.PrintWriter(fileToSave)) {
+                // 1. Tulis Header (Judul Kolom)
+                writer.println("Waktu,Pelaku (User),Karyawan,Aksi,Field Diubah,Nilai Lama,Nilai Baru");
+
+                // 2. Looping nulis isi data dari JTable
+                for (int i = 0; i < auditModel.getRowCount(); i++) {
+                    StringBuilder sb = new StringBuilder();
+                    for (int j = 0; j < auditModel.getColumnCount(); j++) {
+                        String value = auditModel.getValueAt(i, j) != null ? auditModel.getValueAt(i, j).toString() : "";
+                        
+                        // Trik Penting: Ganti koma di dalam teks jadi titik koma, biar format CSV ga berantakan
+                        value = value.replace(",", ";"); 
+                        
+                        sb.append(value);
+                        if (j < auditModel.getColumnCount() - 1) {
+                            sb.append(","); // Pemisah antar kolom
+                        }
+                    }
+                    writer.println(sb.toString()); // Pindah baris baru
+                }
+                
+                JOptionPane.showMessageDialog(this, "Sukses export data!\nFile tersimpan di:\n" + fileToSave.getAbsolutePath(), "Sukses", JOptionPane.INFORMATION_MESSAGE);
+                
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Gagal export data: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
     
@@ -324,5 +471,6 @@ public class DashboardForm extends JFrame {
                 e.getJabatan(), e.getDepartemen(), e.getStatusKerja()
             });
         }
+        applyEmployeeFilter(); 
     }
 }

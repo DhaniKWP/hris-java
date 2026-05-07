@@ -54,17 +54,30 @@ public class EmployeeForm extends JDialog {
     }
 
     private void saveData() {
-        String nik = txtNik.getText();
-        String nama = txtNama.getText();
-        String jabatan = txtJabatan.getText();
-        String dept = txtDepartemen.getText();
+        // 1. Ambil data dari textfield dan hapus spasi di awal/akhir pakai trim()
+        String nik = txtNik.getText().trim();
+        String nama = txtNama.getText().trim();
+        String jabatan = txtJabatan.getText().trim();
+        String dept = txtDepartemen.getText().trim();
         String status = cmbStatus.getSelectedItem().toString();
 
-        if (nik.isEmpty() || nama.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "NIK dan Nama tidak boleh kosong!");
-            return;
+        // 2. 🔥 VALIDASI KETAT: Cek apakah ada kolom yang kosong
+        if (nik.isEmpty() || nama.isEmpty() || jabatan.isEmpty() || dept.isEmpty()) {
+            JOptionPane.showMessageDialog(this, 
+                "Validasi Gagal: Semua kolom (NIK, Nama, Jabatan, Departemen) wajib diisi!", 
+                "Peringatan", JOptionPane.WARNING_MESSAGE);
+            return; // Berhenti di sini, jangan lanjut ke database
         }
 
+        // 3. 🔥 VALIDASI TAMBAHAN: Pastikan NIK hanya berisi angka
+        if (!nik.matches("\\d+")) {
+            JOptionPane.showMessageDialog(this, 
+                "Validasi Gagal: NIK harus berupa angka, tidak boleh ada huruf atau simbol!", 
+                "Peringatan", JOptionPane.WARNING_MESSAGE);
+            return; // Berhenti di sini
+        }
+
+        // Lanjut ke proses simpan (Kalau semua validasi di atas lolos)
         boolean success;
         if (employeeToEdit == null) {
             // Mode Tambah
@@ -73,15 +86,15 @@ public class EmployeeForm extends JDialog {
         } else {
             // Mode Edit
             Employee updatedEmp = new Employee(employeeToEdit.getId(), nik, nama, jabatan, dept, status);
-            // 🔥 MERAHNYA ILANG DISINI! Kita kasih parameter ke-3: currentUser.getId()
             success = service.updateEmployeeById(employeeToEdit.getId(), updatedEmp, currentUser.getId());
         }
 
+        // Notifikasi hasil
         if (success) {
-            JOptionPane.showMessageDialog(this, "Data berhasil disimpan!");
+            JOptionPane.showMessageDialog(this, "Data berhasil disimpan dengan aman!");
             this.dispose(); 
         } else {
-            JOptionPane.showMessageDialog(this, "Gagal menyimpan data ke Cloud!", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Gagal menyimpan data ke Cloud Database!", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 }

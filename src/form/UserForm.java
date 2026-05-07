@@ -46,12 +46,23 @@ public class UserForm extends JDialog {
     }
 
     private void saveData() {
-        String username = txtUsername.getText();
-        String password = new String(txtPassword.getPassword());
-        int roleId = cmbRole.getSelectedIndex() + 1; // +1 karena index 0 = role_id 1
+        String username = txtUsername.getText().trim();
+        String password = new String(txtPassword.getPassword()).trim();
+        int roleId = cmbRole.getSelectedIndex() + 1; 
 
+        // 🔥 VALIDASI KETAT: Username dan Password ga boleh kosong/spasi doang
         if (username.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Username dan Password tidak boleh kosong!");
+            JOptionPane.showMessageDialog(this, 
+                "Validasi Gagal: Username dan Password wajib diisi penuh!", 
+                "Peringatan", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Validasi opsional: Password minimal 6 karakter
+        if (password.length() < 6) {
+            JOptionPane.showMessageDialog(this, 
+                "Validasi Gagal: Password terlalu pendek, minimal 6 karakter!", 
+                "Peringatan", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -62,7 +73,7 @@ public class UserForm extends JDialog {
             JOptionPane.showMessageDialog(this, "Akun berhasil disimpan!");
             this.dispose();
         } else {
-            JOptionPane.showMessageDialog(this, "Gagal menyimpan akun!");
+            JOptionPane.showMessageDialog(this, "Gagal menyimpan akun ke Database!", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 }
