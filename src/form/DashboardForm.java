@@ -21,6 +21,8 @@ import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
+import com.toedter.calendar.JDateChooser;
+import java.text.SimpleDateFormat;
 
 /**
  * HRIS Dashboard - Professional Revamp with Grid & Centered ID
@@ -64,6 +66,9 @@ public class DashboardForm extends JFrame {
     private JTextField txtSearchAudit = new JTextField(15);
     private JComboBox<String> cmbFilterAction = new JComboBox<>(new String[]{"Semua", "UPDATE", "DELETE"});
     private TableRowSorter<DefaultTableModel> sorterAudit;
+    // Filter tanggal
+    private JDateChooser dateAuditStart = new JDateChooser();
+    private JDateChooser dateAuditEnd = new JDateChooser();
 
     // Corporate Colors
     private Color primaryBlue = new Color(41, 128, 185);
@@ -192,6 +197,16 @@ public class DashboardForm extends JFrame {
         pnlFilterAudit.add(new JLabel("  Filter Aksi:"));
         pnlFilterAudit.add(cmbFilterAction);
         
+        dateAuditStart.setDateFormatString("yyyy-MM-dd");
+        dateAuditEnd.setDateFormatString("yyyy-MM-dd");
+        dateAuditStart.setPreferredSize(new Dimension(130, 30));
+        dateAuditEnd.setPreferredSize(new Dimension(130, 30));
+
+        pnlFilterAudit.add(new JLabel("  Dari Tgl:"));
+        pnlFilterAudit.add(dateAuditStart); // Masukin kalender 1
+        pnlFilterAudit.add(new JLabel("  Sampai:"));
+        pnlFilterAudit.add(dateAuditEnd); // Masukin kalender 2
+        
         JButton btnRefreshAudit = new JButton("Refresh Audit");
         styleButton(btnRefreshAudit, Color.GRAY, Color.WHITE);
         styleButton(btnExportAudit, successGreen, Color.WHITE);
@@ -237,6 +252,9 @@ public class DashboardForm extends JFrame {
         styleTable(tableEmployee);
         styleTable(tableAudit);
         styleTable(tableUser);
+        
+        tableEmployee.removeColumn(tableEmployee.getColumnModel().getColumn(0));
+        tableUser.removeColumn(tableUser.getColumnModel().getColumn(0));
 
         tabPane.addTab(" Database Karyawan ", pnlEmployee);
         tabPane.addTab(" Audit Trail System ", pnlAudit);
@@ -257,6 +275,14 @@ public class DashboardForm extends JFrame {
             public void changedUpdate(DocumentEvent e) { applyAuditFilter(); }
         });
         cmbFilterAction.addActionListener(e -> applyAuditFilter());
+        
+        java.beans.PropertyChangeListener dateListener = evt -> {
+            if ("date".equals(evt.getPropertyName())) {
+                applyAuditFilter();
+            }
+        };
+        dateAuditStart.addPropertyChangeListener(dateListener);
+        dateAuditEnd.addPropertyChangeListener(dateListener);
 
         btnRefresh.addActionListener(e -> loadData());
         btnAdd.addActionListener(e -> { new EmployeeForm(this, null, currentUser).setVisible(true); loadData(); loadAuditData(); });
@@ -321,9 +347,37 @@ public class DashboardForm extends JFrame {
     private void applyAuditFilter() {
         String searchTxt = txtSearchAudit.getText().toLowerCase();
         String action = cmbFilterAction.getSelectedItem().toString();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        String startDate = dateAuditStart.getDate() != null ? sdf.format(dateAuditStart.getDate()) : "";
+        String endDate = dateAuditEnd.getDate() != null ? sdf.format(dateAuditEnd.getDate()) : "";
+
         List<RowFilter<Object,Object>> filters = new ArrayList<>();
+
         if (searchTxt.trim().length() > 0) filters.add(RowFilter.regexFilter("(?i)" + searchTxt, 1, 2)); 
         if (!action.equals("Semua")) filters.add(RowFilter.regexFilter("(?i)" + action, 3)); 
+
+        // 🔥 LOGIC FILTER TANGGAL AUDIT
+        if (!startDate.isEmpty() || !endDate.isEmpty()) {
+            filters.add(new RowFilter<Object, Object>() {
+                @Override
+                public boolean include(Entry<? extends Object, ? extends Object> entry) {
+                    // Kolom Waktu ada di index 0
+                    String rowDate = entry.getStringValue(0); 
+                    if (rowDate == null || rowDate.length() < 10) return false;
+                    
+                    // Ambil format YYYY-MM-DD aja dari database
+                    String dateOnly = rowDate.substring(0, 10);
+                    
+                    boolean matches = true;
+                    // Membandingkan urutan alfabet/angka (Lexicographical)
+                    if (!startDate.isEmpty()) matches &= (dateOnly.compareTo(startDate) >= 0);
+                    if (!endDate.isEmpty()) matches &= (dateOnly.compareTo(endDate) <= 0);
+                    
+                    return matches;
+                }
+            });
+        }
+
         sorterAudit.setRowFilter(RowFilter.andFilter(filters));
     }
     
