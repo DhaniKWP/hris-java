@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package service;
 
 import config.SupabaseConfig;
@@ -20,12 +16,8 @@ import java.net.URL;
 public class AuthService {
     public User login(String username, String password) {
         try {
-            System.out.println("========== CEK LOGIN ==========");
-            System.out.println("1. Mencoba login dengan Username: '" + username + "' & Password: '" + password + "'");
-
             String urlUserStr = SupabaseConfig.URL + "/rest/v1/users?username=eq." + username + "&password=eq." + password;
             URL urlUser = new URL(urlUserStr);
-            System.out.println("2. Tembak URL: " + urlUserStr);
 
             HttpURLConnection conn1 = (HttpURLConnection) urlUser.openConnection();
             conn1.setRequestMethod("GET");
@@ -33,7 +25,6 @@ public class AuthService {
             conn1.setRequestProperty("Authorization", "Bearer " + SupabaseConfig.API_KEY);
 
             int responseCode = conn1.getResponseCode();
-            System.out.println("3. Response Code Server: " + responseCode);
 
             if (responseCode == 200) {
                 BufferedReader in1 = new BufferedReader(new InputStreamReader(conn1.getInputStream()));
@@ -42,12 +33,10 @@ public class AuthService {
                 while ((line1 = in1.readLine()) != null) res1.append(line1);
                 in1.close();
 
-                System.out.println("4. Data dari Server: " + res1.toString());
-
                 JSONArray jsonUsers = new JSONArray(res1.toString());
                 
+                // Jika user tidak ditemukan atau password salah
                 if (jsonUsers.length() == 0) {
-                    System.out.println("GAGAL: Data kosong []. User tidak ditemukan ATAU ke-block RLS Supabase!");
                     return null;
                 }
 
@@ -56,8 +45,6 @@ public class AuthService {
                 String dbUser = userObj.getString("username");
                 int roleId = userObj.getInt("role_id");
                 
-                System.out.println("5. User Ketemu! ID: " + userId + " | Role ID: " + roleId);
-
                 // STEP 2: Ambil Role
                 String urlRoleStr = SupabaseConfig.URL + "/rest/v1/roles?id=eq." + roleId;
                 URL urlRole = new URL(urlRoleStr);
@@ -74,23 +61,18 @@ public class AuthService {
                     while ((line2 = in2.readLine()) != null) res2.append(line2);
                     in2.close();
 
-                    System.out.println("6. Data Role dari Server: " + res2.toString());
-
                     JSONArray jsonRoles = new JSONArray(res2.toString());
                     if (jsonRoles.length() > 0) {
                         JSONObject roleObj = jsonRoles.getJSONObject(0);
                         String roleName = roleObj.getString("name"); 
-                        System.out.println("✅ SUKSES: Berhasil login sebagai " + roleName);
 
                         return new User(userId, dbUser, roleName);
                     }
                 }
-            } else {
-                System.out.println("❌ ERROR: Server menolak dengan kode " + responseCode);
             }
         } catch (Exception e) {
-            System.out.println("❌ ERROR FATAL DI JAVA:");
-            e.printStackTrace();
+            // Biarkan printStackTrace buat jaga-jaga kalau ada error koneksi internet / library
+            e.printStackTrace(); 
         }
         return null;
     }

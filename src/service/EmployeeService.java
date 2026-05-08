@@ -22,7 +22,9 @@ public class EmployeeService {
     
     public String getEmployeesJson() {
         try {
-            URL url = new URL(SupabaseConfig.URL + "/rest/v1/employees?select=*");
+            // 🔥 UBAH BARIS INI: Tambahkan filter &deleted_at=is.null di ujung URL
+            URL url = new URL(SupabaseConfig.URL + "/rest/v1/employees?select=*&deleted_at=is.null");
+            
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("apikey", SupabaseConfig.API_KEY);
