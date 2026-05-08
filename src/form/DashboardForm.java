@@ -392,18 +392,44 @@ public class DashboardForm extends JFrame {
     
     private void exportAuditToCSV() {
         JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Simpan Laporan Audit Trail");
+
+        // 🔥 1. BIKIN NAMA FILE OTOMATIS (Format: Laporan_Audit_20260508_2100.csv)
+        String timeStamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmm").format(new java.util.Date());
+        String defaultName = "Laporan_Audit_" + timeStamp + ".csv";
+        fileChooser.setSelectedFile(new java.io.File(defaultName));
+
         if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            try (java.io.PrintWriter writer = new java.io.PrintWriter(fileChooser.getSelectedFile())) {
+            java.io.File fileToSave = fileChooser.getSelectedFile();
+            
+            // 🔥 2. VALIDASI EKSTENSI: Tambahin .csv kalau user hapus ekstensinya pas ganti nama
+            String path = fileToSave.getAbsolutePath();
+            if (!path.toLowerCase().endsWith(".csv")) {
+                fileToSave = new java.io.File(path + ".csv");
+            }
+
+            try (java.io.PrintWriter writer = new java.io.PrintWriter(fileToSave)) {
+                // Tulis Header
                 writer.println("Waktu,Pelaku,Karyawan,Aksi,Field,Lama,Baru");
-                for (int i = 0; i < auditModel.getRowCount(); i++) {
+
+                // 🔥 3. EXPORT DATA YANG LAGI DI-FILTER AJA
+                // Pake tableAudit.getRowCount() biar yang ke-export cuma hasil pencarian/filter tanggal lu
+                for (int i = 0; i < tableAudit.getRowCount(); i++) {
                     StringBuilder sb = new StringBuilder();
-                    for (int j = 0; j < auditModel.getColumnCount(); j++) {
-                        sb.append(auditModel.getValueAt(i, j).toString().replace(",", ";"));
-                        if (j < auditModel.getColumnCount() - 1) sb.append(",");
+                    for (int j = 0; j < tableAudit.getColumnCount(); j++) {
+                        Object cellVal = tableAudit.getValueAt(i, j);
+                        String value = (cellVal != null) ? cellVal.toString().replace(",", ";") : "-";
+                        sb.append(value);
+                        if (j < tableAudit.getColumnCount() - 1) sb.append(",");
                     }
                     writer.println(sb.toString());
                 }
-            } catch (Exception ex) {}
+                
+                JOptionPane.showMessageDialog(this, "Laporan berhasil diexport!\nFile: " + fileToSave.getName());
+                
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error saat export: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
     
