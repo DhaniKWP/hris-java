@@ -401,20 +401,47 @@ private void styleTable(JTable table) {
         btns[6].addActionListener(e -> exportAuditToCSV()); // Export
         
         btns[7].addActionListener(e -> { // Add User
-            new UserForm(this, null).setVisible(true); loadUserData(); 
+            new UserForm(this, null).setVisible(true); 
+            loadUserData(); 
+            // Catatan: Pop-up "Sukses Tambah Data" itu munculnya dari dalam UserForm.java pas lu klik tombol Simpan ya bro!
         });
         
         btns[8].addActionListener(e -> { // Edit User
             int row = tableUser.getSelectedRow();
-            if (row != -1) { new UserForm(this, userList.get(row)).setVisible(true); loadUserData(); }
+            // 🔥 Validasi kalau belum milih data
+            if (row == -1) { 
+                JOptionPane.showMessageDialog(this, "Pilih akun di tabel dulu yang mau diedit!", "Peringatan", JOptionPane.WARNING_MESSAGE); 
+                return; 
+            }
+            new UserForm(this, userList.get(row)).setVisible(true); 
+            loadUserData(); 
         });
         
         btns[9].addActionListener(e -> { // Delete User
             int row = tableUser.getSelectedRow();
-            if (row != -1) {
-                User selectedUser = userList.get(row);
-                if (!selectedUser.getId().equals(currentUser.getId())) {
-                    if (userService.deleteUser(selectedUser.getId())) loadUserData();
+            // 🔥 Validasi kalau belum milih data
+            if (row == -1) {
+                JOptionPane.showMessageDialog(this, "Pilih akun di tabel dulu yang mau dihapus!", "Peringatan", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            
+            User selectedUser = userList.get(row);
+            
+            // 🔥 Validasi Dewa: Mencegah Super Admin hapus diri sendiri
+            if (selectedUser.getId().equals(currentUser.getId())) {
+                JOptionPane.showMessageDialog(this, "Tindakan Ditolak: Lu nggak bisa menghapus akun yang sedang lu pakai saat ini!", "Error Keamanan", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            
+            // 🔥 Pop-up Konfirmasi
+            int confirm = JOptionPane.showConfirmDialog(this, "Apakah lu yakin mau menghapus permanen akun '" + selectedUser.getUsername() + "'?", "Konfirmasi Hapus", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (confirm == JOptionPane.YES_OPTION) {
+                if (userService.deleteUser(selectedUser.getId())) {
+                    // 🔥 Pop-up Sukses Hapus
+                    JOptionPane.showMessageDialog(this, "Akun berhasil dihapus secara permanen!", "Sukses", JOptionPane.INFORMATION_MESSAGE);
+                    loadUserData();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Gagal menghapus akun dari Cloud Database!", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
