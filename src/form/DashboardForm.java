@@ -403,7 +403,6 @@ private void styleTable(JTable table) {
         btns[7].addActionListener(e -> { // Add User
             new UserForm(this, null).setVisible(true); 
             loadUserData(); 
-            // Catatan: Pop-up "Sukses Tambah Data" itu munculnya dari dalam UserForm.java pas lu klik tombol Simpan ya bro!
         });
         
         btns[8].addActionListener(e -> { // Edit User
